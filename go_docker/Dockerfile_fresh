@@ -1,0 +1,10 @@
+FROM golang:1.11.2-alpine3.8
+
+WORKDIR /go/src/app
+COPY . .
+RUN apk update \
+  && apk add --no-cache git \
+  && go get github.com/go-sql-driver/mysql \
+  && go get github.com/pilu/fresh
+
+CMD ["fresh"]

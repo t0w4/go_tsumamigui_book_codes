@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+service GreetService {
+    rpc Greet(UserRequest) returns (GreetResponse) {};
+    rpc GreetServerSideStreaming(UsersRequest) returns (stream GreetResponse) {};
+    rpc GreetClientSideStreaming(stream UserRequest) returns (GreetResponse) {};
+    rpc GreetBidirectionalStreaming(stream UserRequest) returns (stream GreetResponse) {};
+}
+
+message User {
+    string name = 1;
+    int64 age = 2;
+}
+
+message UserRequest {
+    User user = 1;
+}
+
+message UsersRequest {
+    repeated User users = 1;
+}
+
+message GreetResponse {
+    string result = 1;
+}
