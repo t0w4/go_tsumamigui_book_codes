@@ -1,10 +1,11 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
-	"os"
 )
 
 const defaultContentType = "application/json; charset=utf-8"
@@ -15,17 +16,24 @@ type User struct {
 	Age  int    `json:"age"`
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	conn, err := Init()
+// UserService finds users.
+type UserService struct {
+	db *sql.DB
+}
+
+func (us *UserService) handler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	conn, err := us.db.Conn(ctx)
 	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "db init error: %v\n", err)
-		os.Exit(1)
+		return
 	}
 	defer conn.Close()
 
 	var users []*User
 
-	rows, err := conn.Query(`
+	rows, err := conn.QueryContext(ctx, `
       SELECT 
         id,
         name,
@@ -33,8 +41,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
        from users`)
 
 	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "get users error: %v\n", err)
-		os.Exit(1)
+		return
 	}
 
 	for rows.Next() {
@@ -45,8 +54,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			&(user.Age))
 
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(w, "scan users error: %v\n", err)
-			os.Exit(1)
+			return
 		}
 
 		users = append(users, &user)
@@ -56,12 +66,17 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	e := json.NewEncoder(w)
 	e.SetIndent("", "    ")
 	if err := e.Encode(users); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "json encode err: %v\n", err)
-		os.Exit(1)
 	}
 }
 
 func main() {
-	http.HandleFunc("/", handler)
+	db, err := Init()
+	if err != nil {
+		log.Fatalf("fail: %+v", err)
+	}
+	us := &UserService{db}
+	http.HandleFunc("/", us.handler)
 	http.ListenAndServe(":8080", nil)
 }
